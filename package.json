@@ -1,0 +1,20 @@
+{
+  "name": "whalan-quality",
+  "private": true,
+  "type": "module",
+  "description": "Quality gates for Whalan Digital client sites. Run against a built dist/ folder.",
+  "scripts": {
+    "fast": "node scripts/run.mjs fast",
+    "full": "node scripts/run.mjs full"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "dependencies": {
+    "@axe-core/playwright": "^4.14.0",
+    "@lhci/cli": "^0.16.1",
+    "@playwright/test": "^1.65.1",
+    "html-validate": "^9.7.1",
+    "node-html-parser": "^7.1.0"
+  }
+}

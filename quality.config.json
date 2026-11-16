@@ -1,0 +1,48 @@
+{
+  "$comment": "Single source of truth for Whalan Digital quality gates. Change a number here and every client site's next build uses it. 'error' blocks deploy; 'warn' reports only. New checks start as warn for two sites before becoming error.",
+  "lighthouse": {
+    "runs": 3,
+    "preset": "mobile",
+    "scores": {
+      "performance": { "min": 0.95, "level": "error" },
+      "accessibility": { "min": 1.0, "level": "error" },
+      "best-practices": { "min": 0.95, "level": "error" },
+      "seo": { "min": 1.0, "level": "error" }
+    },
+    "metrics": {
+      "largest-contentful-paint": { "maxMs": 2000, "level": "error" },
+      "cumulative-layout-shift": { "max": 0.05, "level": "error" },
+      "total-blocking-time": { "maxMs": 100, "level": "error" }
+    },
+    "maxPages": 12
+  },
+  "budgets": {
+    "jsPerPageKbGzip": 50,
+    "homePageTotalKb": 500,
+    "maxImageKb": 150,
+    "maxFontFiles": 2,
+    "allowedScriptHosts": ["static.cloudflareinsights.com", "challenges.cloudflare.com"]
+  },
+  "accessibility": {
+    "axeTags": ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"],
+    "minTargetPx": 24
+  },
+  "responsive": {
+    "widths": [360, 768, 1280, 1920]
+  },
+  "seo": {
+    "title": { "min": 30, "max": 60 },
+    "description": { "min": 70, "max": 160 },
+    "requireLocalBusinessOnHome": true,
+    "noindexAllowed": ["/404", "/lp/"]
+  },
+  "headers": {
+    "required": ["Strict-Transport-Security", "Content-Security-Policy", "X-Content-Type-Options", "Referrer-Policy"]
+  },
+  "field": {
+    "$comment": "Monitored in Cloudflare Web Analytics at P75, not blocking.",
+    "lcpMs": 2500,
+    "inpMs": 200,
+    "cls": 0.1
+  }
+}

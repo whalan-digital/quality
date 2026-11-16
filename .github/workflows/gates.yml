@@ -1,0 +1,121 @@
+# Reusable quality gate + deploy for Whalan Digital client sites.
+# Called from each client repo's .github/workflows/site.yml.
+#
+# One-time setup (see README):
+#  - This repo: Settings > Actions > General > Access: allow repositories
+#    owned by whalan-digital to use its workflows.
+#  - If this repo stays private, each client repo needs a QUALITY_TOKEN secret
+#    (fine-grained token, read-only Contents on whalan-digital/quality).
+#    Making this repo public removes that step; it holds no secrets.
+
+name: Quality gate
+
+on:
+  workflow_call:
+    inputs:
+      level:
+        description: fast (client content saves) or full (code changes, launch, weekly audit)
+        type: string
+        default: fast
+      deploy:
+        description: Deploy to Cloudflare if the gate passes
+        type: boolean
+        default: false
+      quality-ref:
+        description: Branch or tag of whalan-digital/quality to use
+        type: string
+        default: main
+    secrets:
+      CLOUDFLARE_API_TOKEN:
+        required: false
+      CLOUDFLARE_ACCOUNT_ID:
+        required: false
+      QUALITY_TOKEN:
+        required: false
+
+jobs:
+  gate:
+    name: Gate (${{ inputs.level }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check out quality gates
+        uses: actions/checkout@v4
+        with:
+          repository: whalan-digital/quality
+          ref: ${{ inputs.quality-ref }}
+          path: .quality
+          token: ${{ secrets.QUALITY_TOKEN || github.token }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            .quality/package-lock.json
+
+      - name: Install
+        run: |
+          npm ci
+          npm ci --prefix .quality
+
+      - name: Build
+        run: npm run build
+
+      - name: Quality gate
+        run: node .quality/scripts/run.mjs ${{ inputs.level }}
+
+      - name: External links (report only)
+        if: inputs.level == 'full'
+        continue-on-error: true
+        uses: lycheeverse/lychee-action@v2
+        with:
+          args: --no-progress --exclude-loopback --root-dir ${{ github.workspace }}/dist './dist/**/*.html'
+          fail: true
+
+      - name: Keep Lighthouse reports
+        if: always() && inputs.level == 'full'
+        uses: actions/upload-artifact@v4
+        with:
+          name: lighthouse-reports
+          path: .lighthouseci/
+          retention-days: 14
+          if-no-files-found: ignore
+
+      - name: Keep build for deploy
+        if: inputs.deploy
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+          retention-days: 1
+          include-hidden-files: true
+
+  deploy:
+    name: Deploy to Cloudflare
+    needs: gate
+    if: inputs.deploy && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist
+      - name: Apply database migrations and deploy
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: |
+            d1 migrations apply DB --remote
+            deploy
