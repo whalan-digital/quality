@@ -14,6 +14,10 @@ for (const [audit, rule] of Object.entries(lh.metrics)) {
   assertions[audit] = [rule.level, { maxNumericValue: rule.maxMs ?? rule.max, aggregationMethod: 'median-run' }];
 }
 
+const escape = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+const noindexPattern = `^http://localhost:4321(${config.seo.noindexAllowed.map(escape).join('|')})`;
+const withoutSeo = Object.fromEntries(Object.entries(assertions).filter(([k]) => k !== 'categories:seo'));
+
 const rc = {
   ci: {
     collect: {
@@ -23,7 +27,14 @@ const rc = {
       startServerReadyPattern: 'serving',
       settings: { chromeFlags: '--no-sandbox --headless=new' },
     },
-    assert: { assertions },
+    // Noindex pages (404, /lp/ ad landing pages) still get speed and accessibility
+    // assertions, but not the SEO score: noindex caps it at 69 by design.
+    assert: {
+      assertMatrix: [
+        { matchingUrlPattern: noindexPattern, assertions: withoutSeo },
+        { matchingUrlPattern: `^(?!${noindexPattern}).*$`, assertions },
+      ],
+    },
     upload: { target: 'filesystem', outputDir: '.lighthouseci' },
   },
 };
