@@ -50,6 +50,9 @@ if (full) {
         const info = await page.evaluate(() => {
           const el = document.activeElement;
           if (!el || el === document.body || el.tagName === 'IFRAME') return null;
+          // Turnstile renders its checkbox in an iframe inside a closed shadow root, so
+          // focus reports the host div; the widget draws its own focus ring inside the iframe.
+          if (el.closest('.cf-turnstile')) return null;
           const cs = getComputedStyle(el);
           const visible = (cs.outlineStyle !== 'none' && parseFloat(cs.outlineWidth) > 0) || cs.boxShadow !== 'none';
           return { visible, label: `${el.tagName.toLowerCase()} "${(el.textContent || el.getAttribute('aria-label') || el.id || '').trim().slice(0, 40)}"` };
